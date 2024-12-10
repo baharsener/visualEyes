@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from .processing import define_aoi
+from visualeyes.core.processing import define_aoi
 from eyelinkio import read_edf
 import matplotlib.pyplot as plt
 import os
@@ -98,8 +98,78 @@ def plot_fixations_aoi(filepath, dataframe, savepath):
 
     return ratios_fixations_within
 
+def aoi_overlay(aoi_definitions, screen_width, screen_height):
+    """
+    Overlay shape of AOIs on plots.
 
-def plot_heatmap(data, screen_coords, aoi_definitions=None, bins=None):
+    Parameters:
+    - aoi_definitions (list): A list of AOI dictionaries, containing:
+        - shape (str): "rectangle" or "circle" AOI's.
+        - coordinates (list): Coordinates defining the AOI.
+          For "rectangle": [x1, x2, y1, y2].
+          For "circle": [x_center, y_center, radius].
+    - screen_width (int): Width of the screen in pixels.
+    - screen_height (int): Height of the screen in pixels.
+
+    Returns:
+    - list: A list of AOI boundaries as lists of (x, y) tuples.
+    """
+    aoi_boundaries = []
+
+    for idx, aoi in enumerate(aoi_definitions): #check for each AOI and make the error specific to that AOI
+        shape = aoi['shape'].lower()
+        coordinates = aoi['coordinates']
+        
+        # Check shape
+        if shape not in ['rectangle', 'circle']:
+            raise ValueError(f"Unsupported AOI shape '{shape}' in AOI {idx + 1}. Must be 'rectangle' or 'circle'.")
+        
+        # Check coordinates
+        if not all(isinstance(coord, (int, float)) for coord in coordinates):
+            raise ValueError(f"All coordinates must be numbers in AOI {idx + 1}.")
+        
+        if any(coord < 0 for coord in coordinates):
+            raise ValueError(f"Coordinates cannot be negative in AOI {idx + 1}.")
+        
+        if shape == 'rectangle':
+            if len(coordinates) != 4:
+                raise ValueError(f"Rectangle AOI {idx + 1} must have 4 coordinates: [x1, x2, y1, y2].")
+            
+            x1, x2, y1, y2 = coordinates
+            
+            if x1 > x2:
+                raise ValueError(f"x1 cannot be greater than x2 in AOI {idx + 1}.")
+            if y1 > y2:
+                raise ValueError(f"y1 cannot be greater than y2 in AOI {idx + 1}.")
+            
+            if x2 > screen_width or y2 > screen_height:
+                raise ValueError(f"AOI {idx + 1} exceeds screen boundaries (Width: {screen_width}, Height: {screen_height}).")
+            
+            #Add rectangle boundaries
+            aoi_boundaries.append([(x1, y1), (x1, y2), (x2, y2), (x2, y1), (x1, y1)])
+        
+        elif shape == 'circle':
+            if len(coordinates) != 3:
+                raise ValueError(f"Circle AOI {idx + 1} must have 3 coordinates: [x_center, y_center, radius].")
+            
+            x_center, y_center, radius = coordinates
+            
+            if radius <= 0:
+                raise ValueError(f"Radius must be positive in circle AOI {idx + 1}.")
+            
+            if (x_center - radius < 0 or x_center + radius > screen_width or
+                y_center - radius < 0 or y_center + radius > screen_height):
+                raise ValueError(f"Circle AOI {idx + 1} exceeds screen boundaries (Width: {screen_width}, Height: {screen_height}).")
+            
+            #Add circle boundary
+            theta = np.linspace(0, 2 * np.pi, 100)
+            x = x_center + radius * np.cos(theta)
+            y = y_center + radius * np.sin(theta)
+            aoi_boundaries.append(list(zip(x, y)))
+
+    return aoi_boundaries
+
+def plot_heatmap(data, screen_coords, aoi_boundaries=None, bins=None):
     """
     Plots a heatmap of eye-tracking data and overlays AOIs if defined.
 
@@ -143,8 +213,7 @@ def plot_heatmap(data, screen_coords, aoi_definitions=None, bins=None):
     plt.ylim(0, screen_height)
 
     # If AOIs are defined, draw them
-    if aoi_definitions:
-        aoi_boundaries = define_aoi(aoi_definitions)
+    if aoi_boundaries:
         for boundary in aoi_boundaries:
             # Outline the AOI by drawing its boundary
             boundary = np.array(boundary)
@@ -158,3 +227,5 @@ def plot_heatmap(data, screen_coords, aoi_definitions=None, bins=None):
     plt.xlabel('X Position (pixels)')
     plt.ylabel('Y Position (pixels)')
     plt.show()
+
+import numpy as np

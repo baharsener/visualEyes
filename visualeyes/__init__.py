@@ -1,1 +1,1 @@
-from .core import define_aoi, epoch_data, add_time_to_sample, plot_heatmap
+from .core import define_aoi, epoch_data, add_time_to_sample, plot_heatmap, aoi_overlay, plot_fixations_aoi
