@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from visualeyes.define_aoi import define_aoi
+from .processing import define_aoi
 from eyelinkio import read_edf
 import matplotlib.pyplot as plt
 import os
@@ -97,3 +97,64 @@ def plot_fixations_aoi(filepath, dataframe, savepath):
         ratios_fixations_within.append(ratio)
 
     return ratios_fixations_within
+
+
+def plot_heatmap(data, screen_coords, aoi_definitions=None, bins=None):
+    """
+    Plots a heatmap of eye-tracking data and overlays AOIs if defined.
+
+    Parameters:
+    - data: DataFrame containing 'xpos' and 'ypos' for plotting.
+    - screen_coords: Tuple of (screen_width, screen_height,).
+    - aoi_definitions: List of dictionaries defining the AOIs (optional).
+    - bins: Either an integer specifying the number of bins for both dimensions,
+            or a tuple (bins_x, bins_y) for separate bin sizes.
+    """
+    # Filter NaN values in the gaze columns
+    data = data.dropna(subset=['xpos', 'ypos'])
+
+    # Get screen width and height
+    screen_width, screen_height = screen_coords
+
+    # Filter gaze data outside the screen coordinates
+    data = data[(data['xpos'] >= 0) & (data['xpos'] <= screen_width) & 
+            (data['ypos'] >= 0) & (data['ypos'] <= screen_height)]
+
+    # Determine bins (depends a bit on screen)
+    if bins is None:  # Default bins, 20 px bins here if nothing else is given
+        bins_x = int(screen_width / 20)
+        bins_y = int(screen_height / 20)
+    elif isinstance(bins, int):  # User-defined, if bins for x and y are the same
+        bins_x = bins_y = bins
+    elif isinstance(bins, (tuple, list)) and len(bins) == 2:  # User-defined, if different bins for x and y are desired
+        bins_x, bins_y = bins
+    else:
+        raise ValueError("`bins` must be an integer or a tuple of two integers.")
+
+    heatmap = np.histogram2d(
+    data['xpos'], data['ypos'], bins=[bins_x, bins_y])[0]
+
+    # Plot the heatmap:
+    plt.imshow(heatmap.T, origin='lower', cmap='viridis', extent=[0, screen_width, 0, screen_height])
+    plt.colorbar(label='Count')
+
+    # Adjust x and y axis limits
+    plt.xlim(0, screen_width)
+    plt.ylim(0, screen_height)
+
+    # If AOIs are defined, draw them
+    if aoi_definitions:
+        aoi_boundaries = define_aoi(aoi_definitions)
+        for boundary in aoi_boundaries:
+            # Outline the AOI by drawing its boundary
+            boundary = np.array(boundary)
+            plt.plot(boundary[:, 0], boundary[:, 1], color='red', lw=1)
+
+    # Invert y-axis to set (0, 0) at the top-left
+    plt.gca().invert_yaxis() 
+
+    # Add title and show
+    plt.title('Heatmap of Gaze Data')
+    plt.xlabel('X Position (pixels)')
+    plt.ylabel('Y Position (pixels)')
+    plt.show()
