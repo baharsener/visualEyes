@@ -145,6 +145,73 @@ def overlay_aoi(aoi_definitions, screen_dimensions, ax):
             ax.plot(x, y, color='red', lw=1)
 
     return ax
+def plot_heatmap(data, screen_dimensions, aoi_definitions=None, bins=None):
+    """
+    Plots a heatmap of eye-tracking data and overlays AOIs if defined.
+
+    Parameters:
+    - data: DataFrame containing 'xpos' and 'ypos' for plotting.
+    - screen_dimensions: Tuple of (screen_height, screen_width).
+    - aoi_definitions: List of dictionaries defining the AOIs (optional).
+    - bins: Either an integer specifying the number of bins for both dimensions,
+            or a tuple (bins_x, bins_y) for separate bin sizes.
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import numbers
+
+    # Validate screen dimensions
+    screen_height, screen_width = screen_dimensions
+    screen_dimensions_validation(screen_dimensions)
+
+    # Validate and preprocess the data
+    (x_coord, y_coord), _, _ = dataframe_validation(data, screen_dimensions, drop_outlier=True)
+
+    # Validate the AOI definitions
+    if aoi_definitions is not None:
+        aoi_definitions_validation(aoi_definitions, screen_dimensions)
+
+    # Determine bins
+    if bins is None:  # Default bins: 20 px bins
+        bins_x = int(screen_width / 10)
+        bins_y = int(screen_height / 10)
+    elif isinstance(bins, numbers.Integral):  # User-defined equal bins
+        bins_x = bins_y = bins
+    elif isinstance(bins, (tuple, list, np.ndarray)) and len(bins) == 2:  # User-defined separate bins
+        bins_x, bins_y = bins
+    else:
+        raise ValueError("`bins` must be an integer or a tuple of two integers.")
+
+    # Create 2D histogram
+    heatmap, x_edges, y_edges = np.histogram2d(
+        x_coord, y_coord, bins=[bins_x, bins_y], 
+        range=[[0, screen_width], [0, screen_height]]
+    )
+
+    # Initialize the plot
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    # Plot the heatmap with fixed extent and reversed y-axis for top-left origin
+    heatmap_img = ax.imshow(
+        heatmap.T, interpolation='nearest', origin='upper', cmap='viridis',
+        extent=[0, screen_width, 0, screen_height]
+    )
+
+    # Add a colorbar
+    fig.colorbar(heatmap_img, ax=ax, label='Count')
+
+    # Set axis limits and labels
+    ax.set_xlim(0, screen_width)
+    ax.set_ylim(screen_height, 0)  # Reverse y-axis for top-left origin
+    ax.set_xlabel('X Position (pixels)')
+    ax.set_ylabel('Y Position (pixels)')
+
+    # Overlay AOI boundaries if defined
+    if aoi_definitions is not None:
+        ax = overlay_aoi(aoi_definitions, screen_dimensions, ax)
+
+    # Return the figure and axis
+    return fig, ax
 
 def plot_heatmap(data, screen_dimensions, aoi_definitions=None, bins=None):
     """
@@ -185,25 +252,28 @@ def plot_heatmap(data, screen_dimensions, aoi_definitions=None, bins=None):
     fig, ax = plt.subplots()
 
    
-    heatmap,  xedges, yedges = np.histogram2d(x_coord, y_coord, bins=[bins_x, bins_y])    
+    heatmap,  xedges, yedges = np.histogram2d(
+        x_coord, y_coord, bins=[bins_x, bins_y],
+        range=[[0, screen_width], [0, screen_height]]
+    )
+
     # Plot the heatmap
-    heatmap_img = ax.imshow(heatmap.T, interpolation='nearest', origin='lower',
+    heatmap_img = ax.imshow(heatmap.T, interpolation='nearest', origin='upper', cmap='viridis',
         extent=[0, xedges[-1], yedges[0], yedges[-1]], vmin=0, vmax=20)
 
     fig.colorbar(heatmap_img, ax=ax, label='Number of trials spent looking at screen location')
 
-    ax.set_xlim(0, screen_dimensions[1])
-    ax.set_ylim(0, screen_dimensions[0])
-    
-    # Set the x-axis to the top
-    # ax.xaxis.tick_top()
+    #axis limits
+    ax.set_xlim(0, screen_width)
+    ax.set_ylim(screen_height, 0)
         
     # draw the AOI boundaries if defined
     if aoi_definitions is not None:
         ax = overlay_aoi(aoi_definitions, screen_dimensions, ax)
         
-    # Add title and show
+    #labels
     ax.set_xlabel('X Position (pixels)')
     ax.set_ylabel('Y Position (pixels)')
         
     return fig, ax
+
