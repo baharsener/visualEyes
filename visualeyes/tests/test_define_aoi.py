@@ -23,7 +23,7 @@ def test_run_correctly():
             
             # specify the screen coordinates and the AOI definitions
             screen_coords = edf['info']['screen_coords']
-            aoi_definitions = [{'shape':'rectangle', 'coordinates': ('462', '590', '563', '691')}]
+            aoi_definitions = [{'shape':'rectangle', 'coordinates': (462, 590, 563, 691)}]
             
             # define the AOI
             _ = define_aoi(screen_coords, aoi_definitions)
