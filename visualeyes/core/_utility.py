@@ -39,44 +39,83 @@ def aoi_mask_validation(aoi_mask, screen_dimension):
     return None
 
 
-def dataframe_validation(df):
-        
+def dataframe_validation(df, screen_dimensions=None, drop_outlier=False, drop_nan=True):
     '''
-    Validate the input dataframe and return the x and y coordinates if the dataframe is valid
+    Validate the input dataframe and return the x and y coordinates if the dataframe is valid.
+    Optionally, return the indices of the data points outside the screen boundaries if screen_dimensions is provided.
+    Drop the data points outside the screen boundaries if drop_outlier is also True.
     
     Parameters:
     -----------
     df : pd.DataFrame
         Input dataframe
+    screen_dimensions : tuple, list, or numpy array, optional
+        Screen dimensions (height, width)
+    drop_outlier : bool, optional
+        Drop the data points outside the screen boundaries
         
     Returns:
     --------
-    x_coord : numpy.ndarray
-        x coordinates
-    y_coord : numpy.ndarray
-        y coordinates
+    (x_coord, y_coord) : tuple
+        Tuple containing the x and y coordinates of the data points
+    outlier_indices : numpy.ndarray
+        Indices of the data points outside the screen boundaries
+    df : pd.DataFrame
+        Updated dataframe with outliers dropped (if drop_outlier is True)
     '''
-    x_coord = None
-    y_coord = None
-    
-    # check if input data is a pd.DataFrame
+    # Check input type
     if not isinstance(df, pd.DataFrame):
-        raise ValueError('input data should be a pandas dataframe')
-    
-    # check if the dataframe contains either 'axp' and 'ayp' or 'xpos' and 'ypos' columns
-    if not (('axp' in df.columns and 'ayp' in df.columns) or ('xpos' in df.columns and 'ypos' in df.columns)):
-        raise ValueError('missing x and y coordinates')
-    
-    else:
-        # pull the x and y coordinates
-        if 'axp' in df.columns and 'ayp' in df.columns:
-            x_coord = df['axp']
-            y_coord = df['ayp']
-        else:
-            x_coord = df['xpos']
-            y_coord = df['ypos']
+        raise ValueError('Input data should be a pandas DataFrame')
+
+    # Validate coordinate columns
+    if set(['axp', 'ayp']).issubset(df.columns):
+
+        x_name, y_name = 'axp', 'ayp'
             
-    return (x_coord.values, y_coord.values)
+    elif set(['xpos', 'ypos']).issubset(df.columns):
+        
+        x_name, y_name = 'xpos', 'ypos'
+            
+    else:
+        raise ValueError('Missing x and y coordinates')
+    
+    # Check for mismatched x and y coordinates
+    if not df[x_name].shape == df[y_name].shape:
+        raise ValueError('Mismatched x and y coordinates')
+    
+    # Drop NaN values
+    if drop_nan:
+        df = df.dropna(subset=[x_name, y_name])
+    
+    # Assign x and y coordinates
+    x_coord, y_coord = df[x_name], df[y_name]
+   
+    # Initialize outlier_indices
+    outlier_indices = np.array([], dtype=int)
+
+    # Validate screen dimensions and check for outliers
+    if screen_dimensions:
+        screen_dimensions_validation(screen_dimensions)
+        screen_height, screen_width = screen_dimensions
+
+        # Find outlier indices based on actual DataFrame index
+        outlier_mask = (x_coord < 0) | (x_coord >= screen_width) | \
+                       (y_coord < 0) | (y_coord >= screen_height)
+        
+        outlier_indices = df.index[outlier_mask]
+
+        if drop_outlier:
+            
+            # Drop rows and reassign coordinates
+            df = df.drop(index=outlier_indices)
+            x_coord = df[x_name] 
+            y_coord = df[y_name]
+
+    # Return results
+    if drop_outlier:
+        return (x_coord.values, y_coord.values), outlier_indices, df
+    
+    return (x_coord.values, y_coord.values), outlier_indices
 
 def aoi_definitions_validation(aoi_definitions, screen_dimensions):
     """
@@ -125,7 +164,7 @@ def aoi_definitions_validation(aoi_definitions, screen_dimensions):
         
         # check if the 'shape' key has a valid value
         if aoi['shape'] not in ['rectangle', 'circle']:
-            raise ValueError(f'Unsupported AOI shape: {aoi['shape']}')
+            raise ValueError(f"Unsupported AOI shape: {aoi['shape']}")
         
         # check if the 'coordinates' key corresponds to a tuple, list, or numpy array
         if not isinstance(aoi['coordinates'], (tuple, list, np.ndarray)):

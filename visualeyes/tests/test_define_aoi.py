@@ -1,3 +1,5 @@
+"""Test the define_aoi function."""
+
 import os
 from visualeyes import define_aoi
 import eyelinkio
@@ -9,7 +11,7 @@ def test_run_correctly():
     Smoke test of whether the function runs without errors for all edf files in the data folder
     """
 
-    data_path = os.path.join('..', '..', 'data')
+    data_path = os.path.join('data')
     
     # for all edf files in the data folder
     for file in os.listdir(data_path):
@@ -47,7 +49,6 @@ def test_define_aoi_rectangle():
 def test_define_aoi_circle():
     """
     One shot test of whether the function correctly defines a circular AOI
-
     """
     screen_dimensions = (10, 10)
     aoi_definitions = [{'shape': 'circle', 'coordinates': (5, 5, 2)}]

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import numbers
-from .utility import (aoi_mask_validation, dataframe_validation, 
+from ._utility import (aoi_mask_validation, dataframe_validation, 
                       aoi_definitions_validation, screen_dimensions_validation)
 
 def epoch_data(eye_data, window_start, window_duration):
@@ -183,7 +183,7 @@ def define_aoi(screen_dimensions, aoi_definitions):
     
     return mask
 
-def percent_data_in_aoi(df, aoi_mask, screen_dimension):
+def percent_data_in_aoi(df, aoi_mask, screen_dimensions):
     
     """
     Calculate the percentage of data points in the AOI.
@@ -202,22 +202,22 @@ def percent_data_in_aoi(df, aoi_mask, screen_dimension):
     percent_in_aoi : float
         Percentage of data points in the AOI.
     """
-    
+        
     # validate screen_dimensions
-    screen_dimensions_validation(screen_dimension)
+    screen_dimensions_validation(screen_dimensions)
     
     # validate aoi_mask
-    aoi_mask_validation(aoi_mask, screen_dimension)
+    aoi_mask_validation(aoi_mask, screen_dimensions)
     
-    # check if df contains valid data
-    coords = dataframe_validation(df)
+    # get the x and y coordinates of the data points
+    coords, _, _ = dataframe_validation(df, screen_dimensions, drop_outlier=True)
+
+    valid_mask = ~np.isnan(coords[0]) & ~np.isnan(coords[1])
+    x_coord = np.floor(coords[0][valid_mask]).astype(int)
+    y_coord = np.floor(coords[1][valid_mask]).astype(int)
     
-    x_coord = coords[0]
-    y_coord = coords[1]
-    
-    # count the number of data points in the AOI
-    in_aoi = aoi_mask[y_coord, x_coord] == 1
-    num_data_in_aoi = np.sum(in_aoi)
+    # count the number of data points inside the AOI
+    num_data_in_aoi = np.sum(aoi_mask[y_coord, x_coord])
  
     # calculate the percentage of data points in the AOI
     percent_in_aoi = num_data_in_aoi/ len(x_coord) * 100

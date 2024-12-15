@@ -8,8 +8,15 @@ dependencies:
   - flake8
   - pytest
   - pip 
+  - ipykernel
   - pip:
-      - eyelinkio
-      - -e .
+      - -e git+https://github.com/BrendaQiu/eyelinkio.git@trial_info#egg=eyelinkio
+      - -e . 
+
+
+
+
+
+
 
 
